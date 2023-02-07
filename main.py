@@ -9,10 +9,7 @@ b = 0
 
 #c = 1 > number, c = 2 > sinal, c = 3 > space
 
-print(len(n))
-
 for i in range(len(n)):
-    print(n[i])
 
     if n[i].isdigit():
         if b == 1:
@@ -47,7 +44,6 @@ if c == 2:
     raise Exception("Operação incompleta")
 
 a = r[0]
-print(r)
 
 for i in range(1, len(r)):
     if s[i-1] == 1:
