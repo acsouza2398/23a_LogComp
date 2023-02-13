@@ -1,54 +1,73 @@
 import sys
 
-n = sys.argv[1]
-t = ''
-r = []
-s = []
-c = 0
-b = 0
+#O sintático/parser está sempre olhando para o próximo token, e o léxico está sempre olhando para o token atual
+#O tokenizer sempre começa no primeiro token, e o parser sempre começa no segundo token
 
-#c = 1 > number, c = 2 > sinal, c = 3 > space
+class Token:
+    def __init__(self, type, value):
+        self.type = type
+        self.value = value
 
-for i in range(len(n)):
+class Tokenizer:
+    def __init__(self, source):
+        self.source = source
+        self.position = 0
+        self.next = None
 
-    if n[i].isdigit():
-        if b == 1:
-            raise Exception("Espaço entre números")
-        t = t + n[i]
-        c = 1
-    elif n[i] == '+':
-        if b == 1:
-            b = 0
-        r.append(int(t))
-        t = ''
-        s.append(1)
-        c = 2
-    elif n[i] == '-':
-        if b == 1:
-            b = 0
-        r.append(int(t))
-        t = ''
-        s.append(2)
-        c = 2
-    elif n[i] == ' ':
-        if c == 1:
-            b = 1
-        c = 3
-    else:
-        raise Exception("Símbolo inválido")
+    def selectNext(self):
+        while(self.position < len(self.source) and self.source[self.position] == ' '):
+            if self.source[self.position-1].isdigit() and self.source[self.position+1].isdigit():
+                raise Exception("Símbolo inválido")
+            self.position += 1
 
-    if i == (len(n)-1):
-        r.append(int(t))
+        if self.source[self.position] == '+':
+            self.next = Token('PLUS', self.source[self.position])
+            self.position += 1
+        elif self.source[self.position] == '-':
+            self.next = Token('MINUS', self.source[self.position])
+            self.position += 1
+        elif self.source[self.position].isdigit():
+            i = self.position
+            a = ''
+            while i < len(self.source) and self.source[i].isdigit():
+                a += self.source[i]
+                i += 1
+            self.position = i
+            self.next = Token('INT', a)
 
-if c == 2:
-    raise Exception("Operação incompleta")
+class Parser:
+    @staticmethod
+    def parseExpression(tokenizer):
+        tokenizer.selectNext()
+        if tokenizer.next.type == "INT":
+            n = int(tokenizer.next.value)
+            tokenizer.selectNext()
+            while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
+                if tokenizer.next.type == "PLUS":
+                    tokenizer.selectNext()
+                    if tokenizer.next.type == "INT":
+                        n += int(tokenizer.next.value)
+                    else:
+                        raise Exception("Símbolo inválido")
+                elif tokenizer.next.type == "MINUS":
+                    tokenizer.selectNext()
+                    if tokenizer.next.type == "INT":
+                        n -= int(tokenizer.next.value)
+                    else:
+                        raise Exception("Símbolo inválido")
+                if tokenizer.position < len(tokenizer.source):
+                    tokenizer.selectNext()
+            return n
+        else:
+            raise Exception("Símbolo inválido")
 
-a = r[0]
+    @staticmethod
+    def run(code):
+        tokenizer = Tokenizer(code)
+        return Parser.parseExpression(tokenizer)
 
-for i in range(1, len(r)):
-    if s[i-1] == 1:
-        a = a + r[i]
-    elif s[i-1] == 2:
-        a = a - r[i]
+def main():
+    code = sys.argv[1]
+    print(Parser.run(code)," \n")
 
-print(a)
+main()
