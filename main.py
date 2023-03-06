@@ -54,7 +54,6 @@ class Tokenizer:
             raise Exception("Entrada vazia")
         else:
             self.next = Token('EOF', '')
-        print(self.next.type, self.next.value)
 
 class Parser:
     @staticmethod
@@ -76,7 +75,6 @@ class Parser:
     @staticmethod
     def parseExpression(tokenizer):
         a = Parser.parseTerm(tokenizer)
-        print(tokenizer.next.type, tokenizer.next.value)
         while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
             if tokenizer.next.type == "PLUS":
                 tokenizer.selectNext()
