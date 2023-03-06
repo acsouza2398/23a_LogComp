@@ -50,6 +50,8 @@ class Tokenizer:
                 self.next = Token('INT', a)
             elif self.source[self.position] != ' ':
                 raise Exception("Símbolo inválido")
+            elif self.source[self.position] == ' ':
+                self.next = Token('EOF', '')
         elif len(self.source) == 0:
             raise Exception("Entrada vazia")
         else:
