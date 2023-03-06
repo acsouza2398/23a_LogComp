@@ -54,7 +54,6 @@ class Tokenizer:
             raise Exception("Entrada vazia")
         else:
             self.next = Token('EOF', '')
-        print(self.next.type, self.next.value)
 
 class Parser:
     @staticmethod
