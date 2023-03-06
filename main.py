@@ -54,6 +54,7 @@ class Tokenizer:
             raise Exception("Entrada vazia")
         else:
             self.next = Token('EOF', '')
+        print(self.next.type, self.next.value)
 
 class Parser:
     @staticmethod
@@ -107,7 +108,7 @@ class Parser:
                 return n
             else:
                 raise Exception("Símbolo inválido")
-        elif tokenizer.next.type != "MULT" and tokenizer.next.type != "DIV" and tokenizer.next.type != "EOF":
+        else:
             raise Exception("Símbolo inválido")
 
     @staticmethod
@@ -115,7 +116,11 @@ class Parser:
         c = PrePro.filter(code)
         tokenizer = Tokenizer(c)
         tokenizer.selectNext()
-        return Parser.parseExpression(tokenizer)
+        a = Parser.parseExpression(tokenizer)
+        if tokenizer.next.type == "EOF":
+            return a
+        else:
+            raise Exception("Fim de arquivo inválido")
 
 class PrePro:
     @staticmethod
