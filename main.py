@@ -34,6 +34,12 @@ class Tokenizer:
             elif self.source[self.position] == '/':
                 self.next = Token('DIV', self.source[self.position])
                 self.position += 1
+            elif self.source[self.position] == '(':
+                self.next = Token('LPAREN', self.source[self.position])
+                self.position += 1
+            elif self.source[self.position] == ')':
+                self.next = Token('RPAREN', self.source[self.position])
+                self.position += 1
             elif self.source[self.position].isdigit():
                 i = self.position
                 a = ''
@@ -52,26 +58,19 @@ class Tokenizer:
 class Parser:
     @staticmethod
     def parseTerm(tokenizer):
-        if tokenizer.next.type == "INT":
-            n = int(tokenizer.next.value)
-            tokenizer.selectNext()
-            while tokenizer.next.type == "MULT" or tokenizer.next.type == "DIV":
-                if tokenizer.next.type == "MULT":
-                    tokenizer.selectNext()
-                    if tokenizer.next.type == "INT":
-                        n *= int(tokenizer.next.value)
-                    else:
-                        raise Exception("Símbolo inválido")
-                elif tokenizer.next.type == "DIV":
-                    tokenizer.selectNext()
-                    if tokenizer.next.type == "INT":
-                        n //= int(tokenizer.next.value)
-                    else:
-                        raise Exception("Símbolo inválido")
+        a = Parser.parseFactor(tokenizer)
+        tokenizer.selectNext()
+        while tokenizer.next.type == "MULT" or tokenizer.next.type == "DIV":
+            if tokenizer.next.type == "MULT":
                 tokenizer.selectNext()
-            return n
-        elif tokenizer.next.type != "PLUS" and tokenizer.next.type != "MINUS" and tokenizer.next.type != "EOF":
-            raise Exception("Símbolo inválido")
+                b = Parser.parseFactor(tokenizer)
+                a *= b
+            elif tokenizer.next.type == "DIV":
+                tokenizer.selectNext()
+                b = Parser.parseFactor(tokenizer)
+                a //= b
+            tokenizer.selectNext()
+        return a
         
     @staticmethod
     def parseExpression(tokenizer):
@@ -86,6 +85,30 @@ class Parser:
                 b = Parser.parseTerm(tokenizer)
                 a -= b
         return a
+    
+    @staticmethod
+    def parseFactor(tokenizer):
+        if tokenizer.next.type == "INT":
+            n = int(tokenizer.next.value)
+            return n
+        elif tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
+            if tokenizer.next.type == "PLUS":
+                tokenizer.selectNext()
+                n = Parser.parseFactor(tokenizer)
+                return n
+            elif tokenizer.next.type == "MINUS":
+                tokenizer.selectNext()
+                n = Parser.parseFactor(tokenizer)
+                return -n
+        elif tokenizer.next.type == "LPAREN":
+            tokenizer.selectNext()
+            n = Parser.parseExpression(tokenizer)
+            if tokenizer.next.type == "RPAREN":
+                return n
+            else:
+                raise Exception("Símbolo inválido")
+        elif tokenizer.next.type != "MULT" and tokenizer.next.type != "DIV" and tokenizer.next.type != "EOF":
+            raise Exception("Símbolo inválido")
 
     @staticmethod
     def run(code):
