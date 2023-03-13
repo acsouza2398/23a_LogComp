@@ -56,6 +56,7 @@ class Tokenizer:
             raise Exception("Entrada vazia")
         else:
             self.next = Token('EOF', '')
+        #print(self.next.type, self.next.value)
 
 class Parser:
     @staticmethod
@@ -66,11 +67,11 @@ class Parser:
             if tokenizer.next.type == "MULT":
                 tokenizer.selectNext()
                 b = Parser.parseFactor(tokenizer)
-                a *= b
+                a = BinOp("MULT", [a, b])
             elif tokenizer.next.type == "DIV":
                 tokenizer.selectNext()
                 b = Parser.parseFactor(tokenizer)
-                a //= b
+                a = BinOp("DIV", [a, b])
             tokenizer.selectNext()
         return a
         
@@ -81,27 +82,29 @@ class Parser:
             if tokenizer.next.type == "PLUS":
                 tokenizer.selectNext()
                 b = Parser.parseTerm(tokenizer)
-                a += b
+                a = BinOp("PLUS", [a, b])
             elif tokenizer.next.type == "MINUS":
                 tokenizer.selectNext()
                 b = Parser.parseTerm(tokenizer)
-                a -= b
+                a = BinOp("MINUS", [a, b])
         return a
     
     @staticmethod
     def parseFactor(tokenizer):
         if tokenizer.next.type == "INT":
-            n = int(tokenizer.next.value)
+            n = IntVal(tokenizer.next.value)
             return n
         elif tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
             if tokenizer.next.type == "PLUS":
                 tokenizer.selectNext()
                 n = Parser.parseFactor(tokenizer)
-                return n
+                a = UnOp("PLUS", [n])
+                return a
             elif tokenizer.next.type == "MINUS":
                 tokenizer.selectNext()
                 n = Parser.parseFactor(tokenizer)
-                return -n
+                a = UnOp("MINUS", [n])
+                return a
         elif tokenizer.next.type == "LPAREN":
             tokenizer.selectNext()
             n = Parser.parseExpression(tokenizer)
@@ -129,9 +132,62 @@ class PrePro:
         #c = re.sub(r'//.*\n', '', code,  flags=re.MULTILINE)
         c = re.sub(r'#.*$', '', code).replace("\n", "")
         return c
+    
+class Node:
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+    
+    def evaluate(self):
+        pass
+
+class BinOp(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+    
+    def evaluate(self):
+        if self.value == "PLUS":
+            return self.children[0].evaluate() + self.children[1].evaluate()
+        elif self.value == "MINUS":
+            return self.children[0].evaluate() - self.children[1].evaluate()
+        elif self.value == "MULT":
+            return self.children[0].evaluate() * self.children[1].evaluate()
+        elif self.value == "DIV":
+            return self.children[0].evaluate() // self.children[1].evaluate()
+
+class UnOp(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+    
+    def evaluate(self):
+        if self.value == "PLUS":
+            return self.children[0].evaluate()
+        elif self.value == "MINUS":
+            return -self.children[0].evaluate()
+        
+class IntVal(Node):
+    def __init__(self, value):
+        self.value = value
+    
+    def evaluate(self):
+        return int(self.value)
+    
+class NoOp(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+    
+    def evaluate(self):
+        pass
+
+def read_file(filename):
+    with open(filename, 'r') as f:
+        return f.read()
 
 def main():
-    code = sys.argv[1]
-    print(Parser.run(code)," \n")
+    code = read_file(sys.argv[1])
+    print(Parser.run(code).evaluate()," \n")
 
 main()
