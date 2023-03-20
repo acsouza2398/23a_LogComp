@@ -165,6 +165,8 @@ class Parser:
                     tokenizer.selectNext()
                     a = Parser.parseExpression(tokenizer)
                     return AssignOp([i, a])
+        elif tokenizer.next.type == "NEWLINE":
+            return NoOp()
         else:
             raise Exception("Símbolo inválido")
 
@@ -182,8 +184,8 @@ class Parser:
 class PrePro:
     @staticmethod
     def filter(code):
-        c = re.sub(r'//.*\n', '', code,  flags=re.MULTILINE)
-        #c = re.sub(r'#.*$', '', code).replace("\n", "")
+        c = re.sub(r'#.*\n', '', code,  flags=re.MULTILINE).replace("\s", "")
+        #c = re.sub(r'#.*$', '', code).replace("\n", "").replace("\s", "")
         return c
     
 class Node:
@@ -228,9 +230,8 @@ class IntVal(Node):
         return int(self.value)
     
 class NoOp(Node):
-    def __init__(self, value, children):
-        self.value = value
-        self.children = children
+    def __init__(self):
+        pass
     
     def evaluate(self):
         pass

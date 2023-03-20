@@ -1,4 +1,8 @@
+
 x1 = 3
-y2 = 4
-z_final = x1 + y2
-println(z_final)
+x1 = x1 +1
+
+println(x1)
+
+y1 = x1 *100
+println(y1)
