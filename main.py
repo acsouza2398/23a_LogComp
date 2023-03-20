@@ -4,6 +4,9 @@ import re
 #O sintático/parser está sempre olhando para o próximo token, e o léxico está sempre olhando para o token atual
 #O tokenizer sempre começa no primeiro token, e o parser sempre começa no segundo token
 
+alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890'
+reserved = 'println'
+
 class Token:
     def __init__(self, type, value):
         self.type = type
@@ -21,7 +24,6 @@ class Tokenizer:
                 if self.source[self.position-1].isdigit() and self.source[self.position+1].isdigit():
                     raise Exception("Símbolo inválido")
                 self.position += 1
-
             if self.source[self.position] == '+':
                 self.next = Token('PLUS', self.source[self.position])
                 self.position += 1
@@ -48,6 +50,20 @@ class Tokenizer:
                     i += 1
                 self.position = i
                 self.next = Token('INT', a)
+            elif self.source[self.position] == '=':
+                self.next = Token('EQUALS', self.source[self.position])
+                self.position += 1
+            elif self.source[self.position] in alpha:
+                i = self.position
+                a = ''
+                while i < len(self.source) and self.source[i] in alpha:
+                    a += self.source[i]
+                    i += 1
+                self.position = i
+                self.next = Token('WORD', a)
+            elif self.source[self.position] == '\n':
+                self.next = Token('NEWLINE', self.source[self.position])
+                self.position += 1
             elif self.source[self.position] != ' ':
                 raise Exception("Símbolo inválido")
             elif self.source[self.position] == ' ':
@@ -112,6 +128,43 @@ class Parser:
                 return n
             else:
                 raise Exception("Símbolo inválido")
+        elif tokenizer.next.type == "WORD":
+            n = IdentifierOp(tokenizer.next.value)
+            return n
+        else:
+            raise Exception("Símbolo inválido")
+        
+    @staticmethod
+    def parseBlock(tokenizer):
+        children = []
+        while tokenizer.next.type != "EOF":
+            children.append(Parser.parseStatement(tokenizer))
+            tokenizer.selectNext()
+        return BlockOp(children)
+
+    @staticmethod
+    def parseStatement(tokenizer):
+        if tokenizer.next.type == "WORD":
+            if tokenizer.next.value in reserved:
+                if tokenizer.next.value == "println":
+                    tokenizer.selectNext()
+                    if tokenizer.next.type == "LPAREN":
+                        tokenizer.selectNext()
+                        a = Parser.parseExpression(tokenizer)
+                        if tokenizer.next.type == "RPAREN":
+                            return PrintOp(a)
+                        else:
+                            raise Exception("Símbolo inválido")
+                    else:
+                        raise Exception("Símbolo inválido")
+            else:
+                i = IdentifierOp(tokenizer.next.value)
+                #i = tokenizer.next.value
+                tokenizer.selectNext()
+                if tokenizer.next.type == "EQUALS":
+                    tokenizer.selectNext()
+                    a = Parser.parseExpression(tokenizer)
+                    return AssignOp([i, a])
         else:
             raise Exception("Símbolo inválido")
 
@@ -120,7 +173,7 @@ class Parser:
         c = PrePro.filter(code)
         tokenizer = Tokenizer(c)
         tokenizer.selectNext()
-        a = Parser.parseExpression(tokenizer)
+        a = Parser.parseBlock(tokenizer)
         if tokenizer.next.type == "EOF":
             return a
         else:
@@ -129,8 +182,8 @@ class Parser:
 class PrePro:
     @staticmethod
     def filter(code):
-        #c = re.sub(r'//.*\n', '', code,  flags=re.MULTILINE)
-        c = re.sub(r'#.*$', '', code).replace("\n", "")
+        c = re.sub(r'//.*\n', '', code,  flags=re.MULTILINE)
+        #c = re.sub(r'#.*$', '', code).replace("\n", "")
         return c
     
 class Node:
@@ -182,12 +235,51 @@ class NoOp(Node):
     def evaluate(self):
         pass
 
+class PrintOp(Node):
+    def __init__(self, children):
+        self.children = children
+    
+    def evaluate(self):
+        print(self.children.evaluate())
+
+class AssignOp(Node):
+    def __init__(self, children):
+        self.children = children
+    
+    def evaluate(self):
+        SymbolTable.setter(self.children[0].value, self.children[1].evaluate())
+
+class BlockOp(Node):
+    def __init__(self, children):
+        self.children = children
+    
+    def evaluate(self):
+        for child in self.children:
+            child.evaluate()
+
+class IdentifierOp(Node):
+    def __init__(self, value):
+        self.value = value
+    
+    def evaluate(self):
+        return SymbolTable.getter(self.value)
+
+class SymbolTable:
+    table = {}
+    
+    def setter(name, value):
+        SymbolTable.table[name] = value
+    
+    def getter(name):
+        return SymbolTable.table[name]
+
 def read_file(filename):
     with open(filename, 'r') as f:
         return f.read()
 
 def main():
     code = read_file(sys.argv[1])
-    print(Parser.run(code).evaluate()," \n")
+    #code = read_file("test.txt")
+    Parser.run(code).evaluate()
 
 main()
