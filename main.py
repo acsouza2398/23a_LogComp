@@ -424,8 +424,8 @@ def read_file(filename):
         return f.read()
 
 def main():
-    #code = read_file(sys.argv[1])
-    code = read_file("test.txt")
+    code = read_file(sys.argv[1])
+    #code = read_file("test.txt")
     Parser.run(code).evaluate()
 
 main()
