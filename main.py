@@ -5,7 +5,7 @@ import re
 #O tokenizer sempre começa no primeiro token, e o parser sempre começa no segundo token
 
 alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890'
-reserved = ['println', 'if', 'else', 'while', 'read', 'break', 'continue']
+reserved = ['println', 'if', 'else', 'while', 'readline', 'break', 'continue']
 
 class Token:
     def __init__(self, type, value):
@@ -186,14 +186,14 @@ class Parser:
                 raise Exception("Símbolo inválido")
         elif tokenizer.next.type == "WORD":
             if tokenizer.next.value in reserved:
-                if tokenizer.next.value != "read":
+                if tokenizer.next.value != "readline":
                     raise Exception("Símbolo inválido")
                 else:
                     tokenizer.selectNext()
                     if tokenizer.next.type == "LPAREN":
                         tokenizer.selectNext()
                         if tokenizer.next.type == "RPAREN":
-                            return ReadOp()
+                            return ReadLineOp()
                         else:
                             raise Exception("Símbolo inválido")
                     else:
@@ -384,7 +384,7 @@ class IdentifierOp(Node):
     def evaluate(self):
         return SymbolTable.getter(self.value)
 
-class ReadOp(Node):
+class ReadLineOp(Node):
     def __init__(self):
         pass
     
