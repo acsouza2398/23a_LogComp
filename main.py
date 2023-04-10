@@ -5,7 +5,7 @@ import re
 #O tokenizer sempre começa no primeiro token, e o parser sempre começa no segundo token
 
 alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890'
-reserved = 'println'
+reserved = 'println if else while read break continue'
 
 class Token:
     def __init__(self, type, value):
@@ -51,8 +51,12 @@ class Tokenizer:
                 self.position = i
                 self.next = Token('INT', a)
             elif self.source[self.position] == '=':
-                self.next = Token('EQUALS', self.source[self.position])
-                self.position += 1
+                if self.source[self.position+1] == '=':
+                    self.next = Token('EQUALS_BOOL', self.source[self.position] + self.source[self.position+1])
+                    self.position += 2
+                else:
+                    self.next = Token('EQUALS', self.source[self.position])
+                    self.position += 1
             elif self.source[self.position] in alpha:
                 i = self.position
                 a = ''
@@ -64,6 +68,27 @@ class Tokenizer:
             elif self.source[self.position] == '\n':
                 self.next = Token('NEWLINE', self.source[self.position])
                 self.position += 1
+            elif self.source[self.position] == '>':
+                self.next = Token('GREATER', self.source[self.position])
+                self.position += 1
+            elif self.source[self.position] == '<':
+                self.next = Token('LESS', self.source[self.position])
+                self.position += 1
+            elif self.source[self.position] == '!':
+                self.next = Token('NOT', self.source[self.position])
+                self.position += 1
+            elif self.source[self.position] == '&':
+                if self.source[self.position+1] == '&':
+                    self.next = Token('AND', self.source[self.position] + self.source[self.position+1])
+                    self.position += 2
+                else:
+                    raise Exception("Símbolo inválido")
+            elif self.source[self.position] == '|':
+                if self.source[self.position+1] == '|':
+                    self.next = Token('OR', self.source[self.position] + self.source[self.position+1])
+                    self.position += 2
+                else:
+                    raise Exception("Símbolo inválido")
             elif self.source[self.position] != ' ':
                 raise Exception("Símbolo inválido")
             elif self.source[self.position] == ' ':
@@ -79,7 +104,7 @@ class Parser:
     def parseTerm(tokenizer):
         a = Parser.parseFactor(tokenizer)
         tokenizer.selectNext()
-        while tokenizer.next.type == "MULT" or tokenizer.next.type == "DIV":
+        while tokenizer.next.type == "MULT" or tokenizer.next.type == "DIV" or tokenizer.next.type == "AND":
             if tokenizer.next.type == "MULT":
                 tokenizer.selectNext()
                 b = Parser.parseFactor(tokenizer)
@@ -88,13 +113,17 @@ class Parser:
                 tokenizer.selectNext()
                 b = Parser.parseFactor(tokenizer)
                 a = BinOp("DIV", [a, b])
+            elif tokenizer.next.type == "AND":
+                tokenizer.selectNext()
+                b = Parser.parseFactor(tokenizer)
+                a = BinOp("AND", [a, b])
             tokenizer.selectNext()
         return a
         
     @staticmethod
     def parseExpression(tokenizer):
         a = Parser.parseTerm(tokenizer)
-        while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
+        while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS" or tokenizer.next.type == "OR":
             if tokenizer.next.type == "PLUS":
                 tokenizer.selectNext()
                 b = Parser.parseTerm(tokenizer)
@@ -103,6 +132,28 @@ class Parser:
                 tokenizer.selectNext()
                 b = Parser.parseTerm(tokenizer)
                 a = BinOp("MINUS", [a, b])
+            elif tokenizer.next.type == "OR":
+                tokenizer.selectNext()
+                b = Parser.parseTerm(tokenizer)
+                a = BinOp("OR", [a, b])
+        return a
+    
+    @staticmethod
+    def parseRelExpression(tokenizer):
+        a = Parser.parseExpression(tokenizer)
+        while tokenizer.next.type == "EQUALS_BOOL" or tokenizer.next.type == "GREATER" or tokenizer.next.type == "LESS":
+            if tokenizer.next.type == "EQUALS_BOOL":
+                tokenizer.selectNext()
+                b = Parser.parseExpression(tokenizer)
+                a = BinOp("EQUALS_BOOL", [a, b])
+            elif tokenizer.next.type == "GREATER":
+                tokenizer.selectNext()
+                b = Parser.parseExpression(tokenizer)
+                a = BinOp("GREATER", [a, b])
+            elif tokenizer.next.type == "LESS":
+                tokenizer.selectNext()
+                b = Parser.parseExpression(tokenizer)
+                a = BinOp("LESS", [a, b])
         return a
     
     @staticmethod
@@ -110,7 +161,7 @@ class Parser:
         if tokenizer.next.type == "INT":
             n = IntVal(tokenizer.next.value)
             return n
-        elif tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
+        elif tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS" or tokenizer.next.type == "NOT":
             if tokenizer.next.type == "PLUS":
                 tokenizer.selectNext()
                 n = Parser.parseFactor(tokenizer)
@@ -121,14 +172,32 @@ class Parser:
                 n = Parser.parseFactor(tokenizer)
                 a = UnOp("MINUS", [n])
                 return a
+            elif tokenizer.next.type == "NOT":
+                tokenizer.selectNext()
+                n = Parser.parseFactor(tokenizer)
+                a = UnOp("NOT", [n])
+                return a
         elif tokenizer.next.type == "LPAREN":
             tokenizer.selectNext()
-            n = Parser.parseExpression(tokenizer)
+            n = Parser.parseRelExpression(tokenizer)
             if tokenizer.next.type == "RPAREN":
                 return n
             else:
                 raise Exception("Símbolo inválido")
         elif tokenizer.next.type == "WORD":
+            if tokenizer.next.value in reserved:
+                if tokenizer.next.value != "read":
+                    raise Exception("Símbolo inválido")
+                else:
+                    tokenizer.selectNext()
+                    if tokenizer.next.type == "LPAREN":
+                        tokenizer.selectNext()
+                        if tokenizer.next.type == "RPAREN":
+                            return ReadOp()
+                        else:
+                            raise Exception("Símbolo inválido")
+                    else:
+                        raise Exception("Símbolo inválido")
             n = IdentifierOp(tokenizer.next.value)
             return n
         else:
@@ -138,6 +207,8 @@ class Parser:
     def parseBlock(tokenizer):
         children = []
         while tokenizer.next.type != "EOF":
+            if tokenizer.next.value == "end" or tokenizer.next.value == "else":
+                break
             children.append(Parser.parseStatement(tokenizer))
             tokenizer.selectNext()
         return BlockOp(children)
@@ -150,13 +221,49 @@ class Parser:
                     tokenizer.selectNext()
                     if tokenizer.next.type == "LPAREN":
                         tokenizer.selectNext()
-                        a = Parser.parseExpression(tokenizer)
+                        a = Parser.parseRelExpression(tokenizer)
                         if tokenizer.next.type == "RPAREN":
                             return PrintOp(a)
                         else:
                             raise Exception("Símbolo inválido")
                     else:
                         raise Exception("Símbolo inválido")
+                elif tokenizer.next.value == "while":
+                    tokenizer.selectNext()
+                    a = Parser.parseRelExpression(tokenizer)
+                    if tokenizer.next.type == "NEWLINE":
+                        tokenizer.selectNext()
+                        b = Parser.parseBlock(tokenizer)
+                        if tokenizer.next.type == "WORD":
+                            if tokenizer.next.value == "end":
+                                return WhileOp([a, b])
+                            else:
+                                raise Exception("Símbolo inválido")
+                        else:
+                            raise Exception("Símbolo inválido")
+                elif tokenizer.next.value == "if":
+                    tokenizer.selectNext()
+                    a = Parser.parseRelExpression(tokenizer)
+                    if tokenizer.next.type == "NEWLINE":
+                        tokenizer.selectNext()
+                        b = Parser.parseBlock(tokenizer)
+                        if tokenizer.next.type == "WORD":
+                            if tokenizer.next.value == "end":
+                                return IfOp([a, b])
+                            elif tokenizer.next.value == "else":
+                                tokenizer.selectNext()
+                                c = Parser.parseBlock(tokenizer)
+                                if tokenizer.next.type == "WORD":
+                                    if tokenizer.next.value == "end":
+                                        return IfOp([a, b, c])
+                                    else:
+                                        raise Exception("Símbolo inválido")
+                                else:
+                                    raise Exception("Símbolo inválido")
+                            else:
+                                raise Exception("Símbolo inválido")
+                        else:
+                            raise Exception("Símbolo inválido")
             else:
                 i = IdentifierOp(tokenizer.next.value)
                 #i = tokenizer.next.value
@@ -210,6 +317,16 @@ class BinOp(Node):
             return self.children[0].evaluate() * self.children[1].evaluate()
         elif self.value == "DIV":
             return self.children[0].evaluate() // self.children[1].evaluate()
+        elif self.value == "EQUALS_BOOL":
+            return self.children[0].evaluate() == self.children[1].evaluate()
+        elif self.value == "GREATER":
+            return self.children[0].evaluate() > self.children[1].evaluate()
+        elif self.value == "LESS":
+            return self.children[0].evaluate() < self.children[1].evaluate()
+        elif self.value == "AND":
+            return self.children[0].evaluate() and self.children[1].evaluate()
+        elif self.value == "OR":
+            return self.children[0].evaluate() or self.children[1].evaluate()
 
 class UnOp(Node):
     def __init__(self, value, children):
@@ -221,6 +338,8 @@ class UnOp(Node):
             return self.children[0].evaluate()
         elif self.value == "MINUS":
             return -self.children[0].evaluate()
+        elif self.value == "NOT":
+            return not self.children[0].evaluate()
         
 class IntVal(Node):
     def __init__(self, value):
@@ -264,6 +383,32 @@ class IdentifierOp(Node):
     
     def evaluate(self):
         return SymbolTable.getter(self.value)
+
+class ReadOp(Node):
+    def __init__(self):
+        pass
+    
+    def evaluate(self):
+        return int(input())
+
+class WhileOp(Node):
+    def __init__(self, children):
+        self.children = children
+    
+    def evaluate(self):
+        while self.children[0].evaluate():
+            self.children[1].evaluate()
+
+class IfOp(Node):
+    def __init__(self, children):
+        self.children = children
+    
+    def evaluate(self):
+        if self.children[0].evaluate():
+            self.children[1].evaluate()
+        else:
+            if len(self.children) == 3:
+                self.children[2].evaluate()
 
 class SymbolTable:
     table = {}
