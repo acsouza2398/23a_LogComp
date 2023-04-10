@@ -5,7 +5,7 @@ import re
 #O tokenizer sempre começa no primeiro token, e o parser sempre começa no segundo token
 
 alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890'
-reserved = 'println if else while read break continue'
+reserved = ['println', 'if', 'else', 'while', 'read', 'break', 'continue']
 
 class Token:
     def __init__(self, type, value):
@@ -424,8 +424,8 @@ def read_file(filename):
         return f.read()
 
 def main():
-    code = read_file(sys.argv[1])
-    #code = read_file("test.txt")
+    #code = read_file(sys.argv[1])
+    code = read_file("test.txt")
     Parser.run(code).evaluate()
 
 main()

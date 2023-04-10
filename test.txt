@@ -1,9 +1,5 @@
-
-x1 = 3
-x1 = x1+1
-
-if x1 > 0
-    println(x1)
-else
-    println(0)
+a = 0
+while a < 3
+    a = a +1
+    println(a)
 end
