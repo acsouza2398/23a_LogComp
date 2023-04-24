@@ -66,6 +66,11 @@ class Tokenizer:
                 self.position = i
                 self.next = Token('WORD', a)
             elif self.source[self.position] == '\n':
+                #i = self.position
+                #while i < len(self.source) and self.source[i] == '\n' or self.source[i] == ' ':
+                #    i += 1                
+                #self.next = Token('NEWLINE', self.source[i-1])
+                #self.position = i-1
                 self.next = Token('NEWLINE', self.source[self.position])
                 self.position += 1
             elif self.source[self.position] == '>':
@@ -245,7 +250,11 @@ class Parser:
                         tokenizer.selectNext()
                         a = Parser.parseRelExpression(tokenizer)
                         if tokenizer.next.type == "RPAREN":
-                            return PrintOp(a)
+                            tokenizer.selectNext()
+                            if tokenizer.next.type == "NEWLINE":
+                                return PrintOp(a)
+                            else:
+                                raise Exception("Símbolo inválido")
                         else:
                             raise Exception("Símbolo inválido")
                     else:
@@ -331,7 +340,7 @@ class Parser:
 class PrePro:
     @staticmethod
     def filter(code):
-        c = re.sub(r'#.*\n', '', code,  flags=re.MULTILINE).replace("\s", "")
+        c = re.sub(r'#.*\n', '', code).replace("\s", "")
         #c = re.sub(r'#.*$', '', code).replace("\n", "").replace("\s", "")
         return c
     
@@ -372,24 +381,21 @@ class BinOp(Node):
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "EQUALS_BOOL":
-            if l[0] == r[0] and l[0] == "Int":
-                if l[1] == r[1]:
-                    return ("Int", 1)
-                else:
-                    return ("Int", 0)
-            elif l[0] == r[0] and l[0] == "String":
-                if l[1] == r[1]:
-                    return ("String", 1)
-                else:
-                    return ("String", 0)
+            if l[1] == r[1]:
+                return ("Int", 1)
             else:
-                raise Exception("Tipo Inválido")
+                return ("Int", 0)
         elif self.value == "GREATER":
             if l[0] == r[0] and l[0] == "Int":
                 if l[1] > r[1]:
                     return ("Int", 1)
                 else:
                     return ("Int", 0)
+            elif l[0] == r[0] and l[0] == "String":
+                if l[1] > r[1]:
+                    return ("String", 1)
+                else:
+                    return ("String", 0)
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "LESS":
@@ -398,6 +404,11 @@ class BinOp(Node):
                     return ("Int", 1)
                 else:
                     return ("Int", 0)
+            elif l[0] == r[0] and l[0] == "String":
+                if l[1] < r[1]:
+                    return ("String", 1)
+                else:
+                    return ("String", 0)
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "AND":
@@ -409,9 +420,15 @@ class BinOp(Node):
                 raise Exception("Tipo Inválido")
         elif self.value == "OR":
             if l[0] == r[0] and l[0] == "Int":
-                return ("Int", l or r)
+                if l[1] or r[1]:
+                    return ("Int", 1)
+                else:
+                    return ("Int", 0)
             elif l[0] == r[0] and l[0] == "String":
-                return ("String", l or r)
+                if l[1] or r[1]:
+                    return ("String", 1)
+                else:
+                    return ("String", 0)
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "CONCAT":
@@ -425,17 +442,20 @@ class UnOp(Node):
     def evaluate(self):
         if self.value == "PLUS":
             if self.children[0].evaluate()[0] == "Int":
-                return self.children[0][1].evaluate()
+                return ["Int", self.children[0].evaluate()[1]]
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "MINUS":
             if self.children[0].evaluate()[0] == "Int":
-                return -self.children[0][1].evaluate()
+                return ["Int", -self.children[0].evaluate()[1]]
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "NOT":
             if self.children[0].evaluate()[0] == "Int":
-                return not self.children[0][1].evaluate()
+                if self.children[0].evaluate()[1] == 0:
+                    return ["Int", 1]
+                else:
+                    return ["Int", 0]
             else:
                 raise Exception("Tipo Inválido")
         
@@ -494,14 +514,14 @@ class ReadLineOp(Node):
         pass
     
     def evaluate(self):
-        return int(input())
+        return ["Int", int(input())]
 
 class WhileOp(Node):
     def __init__(self, children):
         self.children = children
     
     def evaluate(self):
-        while self.children[0].evaluate():
+        while self.children[0].evaluate()[1] != 0:
             self.children[1].evaluate()
 
 class IfOp(Node):
@@ -549,6 +569,8 @@ class SymbolTable:
         return SymbolTable.table[name]
     
     def create(name, value):
+        if name in SymbolTable.table:
+            raise Exception("Variável já declarada")
         SymbolTable.table[name] = value
 
 def read_file(filename):
