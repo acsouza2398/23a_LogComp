@@ -5,7 +5,7 @@ import re
 #O tokenizer sempre começa no primeiro token, e o parser sempre começa no segundo token
 
 alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890'
-reserved = ['println', 'if', 'else', 'while', 'readline', 'break', 'continue']
+reserved = ['println', 'if', 'else', 'end', 'while', 'readline', 'break', 'continue', 'Int', 'String']
 
 class Token:
     def __init__(self, type, value):
@@ -89,6 +89,16 @@ class Tokenizer:
                     self.position += 2
                 else:
                     raise Exception("Símbolo inválido")
+            elif self.source[self.position] == ':':
+                if self.source[self.position+1] == ':':
+                    self.next = Token('DECLARE', self.source[self.position] + self.source[self.position+1])
+                    self.position += 2
+            elif self.source[self.position] == '"':
+                self.next = Token('QUOTE', self.source[self.position])
+                self.position += 1
+            elif self.source[self.position] == '.':
+                self.next = Token('CONCAT', self.source[self.position])
+                self.position += 1
             elif self.source[self.position] != ' ':
                 raise Exception("Símbolo inválido")
             elif self.source[self.position] == ' ':
@@ -123,7 +133,7 @@ class Parser:
     @staticmethod
     def parseExpression(tokenizer):
         a = Parser.parseTerm(tokenizer)
-        while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS" or tokenizer.next.type == "OR":
+        while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS" or tokenizer.next.type == "OR" or tokenizer.next.type == "CONCAT":
             if tokenizer.next.type == "PLUS":
                 tokenizer.selectNext()
                 b = Parser.parseTerm(tokenizer)
@@ -136,6 +146,10 @@ class Parser:
                 tokenizer.selectNext()
                 b = Parser.parseTerm(tokenizer)
                 a = BinOp("OR", [a, b])
+            elif tokenizer.next.type == "CONCAT":
+                tokenizer.selectNext()
+                b = Parser.parseTerm(tokenizer)
+                a = BinOp("CONCAT", [a, b])
         return a
     
     @staticmethod
@@ -200,6 +214,14 @@ class Parser:
                         raise Exception("Símbolo inválido")
             n = IdentifierOp(tokenizer.next.value)
             return n
+        elif tokenizer.next.type == "QUOTE":
+            tokenizer.selectNext()
+            n = StrVal(tokenizer.next.value)
+            tokenizer.selectNext()
+            if tokenizer.next.type == "QUOTE":
+                return n
+            else:
+                raise Exception("Símbolo inválido")
         else:
             raise Exception("Símbolo inválido")
         
@@ -270,8 +292,26 @@ class Parser:
                 tokenizer.selectNext()
                 if tokenizer.next.type == "EQUALS":
                     tokenizer.selectNext()
-                    a = Parser.parseExpression(tokenizer)
+                    a = Parser.parseRelExpression(tokenizer)
                     return AssignOp([i, a])
+                elif tokenizer.next.type == "DECLARE":
+                    tokenizer.selectNext()
+                    if tokenizer.next.value == "Int":
+                        tokenizer.selectNext()
+                        if tokenizer.next.type == "EQUALS":
+                            tokenizer.selectNext()
+                            a = Parser.parseRelExpression(tokenizer)
+                            return VarDeclOp("Int",[i, a])
+                        return VarDeclOp("Int",[i])
+                    elif tokenizer.next.value == "String":
+                        tokenizer.selectNext()
+                        if tokenizer.next.type == "EQUALS":
+                            tokenizer.selectNext()
+                            a = Parser.parseRelExpression(tokenizer)
+                            return VarDeclOp("String",[i, a])
+                        return VarDeclOp("String",[i])
+                else: 
+                    raise Exception("Símbolo inválido")
         elif tokenizer.next.type == "NEWLINE":
             return NoOp()
         else:
@@ -309,24 +349,73 @@ class BinOp(Node):
         self.children = children
     
     def evaluate(self):
+        l = self.children[0].evaluate()
+        r = self.children[1].evaluate()
         if self.value == "PLUS":
-            return self.children[0].evaluate() + self.children[1].evaluate()
+            if l[0] == r[0] and l[0] == "Int":
+                return ("Int", l[1] + r[1])
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "MINUS":
-            return self.children[0].evaluate() - self.children[1].evaluate()
+            if l[0] == r[0] and l[0] == "Int":
+                return ("Int", l[1] - r[1])
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "MULT":
-            return self.children[0].evaluate() * self.children[1].evaluate()
+            if l[0] == r[0] and l[0] == "Int":
+                return ("Int", l[1] * r[1])
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "DIV":
-            return self.children[0].evaluate() // self.children[1].evaluate()
+            if l[0] == r[0] and l[0] == "Int":
+                return ("Int", l[1] // r[1])
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "EQUALS_BOOL":
-            return self.children[0].evaluate() == self.children[1].evaluate()
+            if l[0] == r[0] and l[0] == "Int":
+                if l[1] == r[1]:
+                    return ("Int", 1)
+                else:
+                    return ("Int", 0)
+            elif l[0] == r[0] and l[0] == "String":
+                if l[1] == r[1]:
+                    return ("String", 1)
+                else:
+                    return ("String", 0)
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "GREATER":
-            return self.children[0].evaluate() > self.children[1].evaluate()
+            if l[0] == r[0] and l[0] == "Int":
+                if l[1] > r[1]:
+                    return ("Int", 1)
+                else:
+                    return ("Int", 0)
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "LESS":
-            return self.children[0].evaluate() < self.children[1].evaluate()
+            if l[0] == r[0] and l[0] == "Int":
+                if l[1] < r[1]:
+                    return ("Int", 1)
+                else:
+                    return ("Int", 0)
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "AND":
-            return self.children[0].evaluate() and self.children[1].evaluate()
+            if l[0] == r[0] and l[0] == "Int":
+                return ("Int", l and r)
+            elif l[0] == r[0] and l[0] == "String":
+                return ("String", l and r)
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "OR":
-            return self.children[0].evaluate() or self.children[1].evaluate()
+            if l[0] == r[0] and l[0] == "Int":
+                return ("Int", l or r)
+            elif l[0] == r[0] and l[0] == "String":
+                return ("String", l or r)
+            else:
+                raise Exception("Tipo Inválido")
+        elif self.value == "CONCAT":
+            return ("String", str(l[1]) + str(r[1]))
 
 class UnOp(Node):
     def __init__(self, value, children):
@@ -335,18 +424,34 @@ class UnOp(Node):
     
     def evaluate(self):
         if self.value == "PLUS":
-            return self.children[0].evaluate()
+            if self.children[0].evaluate()[0] == "Int":
+                return self.children[0][1].evaluate()
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "MINUS":
-            return -self.children[0].evaluate()
+            if self.children[0].evaluate()[0] == "Int":
+                return -self.children[0][1].evaluate()
+            else:
+                raise Exception("Tipo Inválido")
         elif self.value == "NOT":
-            return not self.children[0].evaluate()
+            if self.children[0].evaluate()[0] == "Int":
+                return not self.children[0][1].evaluate()
+            else:
+                raise Exception("Tipo Inválido")
         
 class IntVal(Node):
     def __init__(self, value):
         self.value = value
     
     def evaluate(self):
-        return int(self.value)
+        return ["Int", int(self.value)]
+    
+class StrVal(Node):
+    def __init__(self, value):
+        self.value = value
+    
+    def evaluate(self):
+        return ["String", str(self.value)]
     
 class NoOp(Node):
     def __init__(self):
@@ -360,7 +465,7 @@ class PrintOp(Node):
         self.children = children
     
     def evaluate(self):
-        print(self.children.evaluate())
+        print(self.children.evaluate()[1])
 
 class AssignOp(Node):
     def __init__(self, children):
@@ -410,14 +515,41 @@ class IfOp(Node):
             if len(self.children) == 3:
                 self.children[2].evaluate()
 
+class VarDeclOp(Node):
+    def __init__(self, value, children):
+        self.children = children
+        self.value = value
+    
+    def evaluate(self):
+        if len(self.children) == 1:
+            if self.value == "Int":
+                SymbolTable.create(self.children[0].value, [self.value, 0])
+            elif self.value == "String":
+                SymbolTable.create(self.children[0].value, [self.value, ""])
+            else:
+                raise Exception("Tipo inválido")
+        else:
+            if self.value == "Int" and self.children[1].evaluate()[0] == "Int":
+                SymbolTable.create(self.children[0].value, [self.value, self.children[1].evaluate()[1]])
+            elif self.value == "String" and self.children[1].evaluate()[0] == "String":
+                SymbolTable.create(self.children[0].value, [self.value, self.children[1].evaluate()[1]])
+            else:
+                raise Exception("Tipo inválido")
+
 class SymbolTable:
     table = {}
     
     def setter(name, value):
-        SymbolTable.table[name] = value
+        if SymbolTable.table[name][0] == value[0]:
+            SymbolTable.table[name][1] = value[1]
+        else:
+            raise Exception("Tipo inválido")
     
     def getter(name):
         return SymbolTable.table[name]
+    
+    def create(name, value):
+        SymbolTable.table[name] = value
 
 def read_file(filename):
     with open(filename, 'r') as f:

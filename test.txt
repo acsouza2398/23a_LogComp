@@ -1,6 +1,4 @@
-
-
-   
-    x = readline()
-    println(x)
+x::Int
+x = (1==1)
+println(x)
 
