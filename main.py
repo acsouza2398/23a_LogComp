@@ -7,6 +7,96 @@ import re
 alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890'
 reserved = ['println', 'if', 'else', 'end', 'while', 'readline', 'break', 'continue', 'Int', 'String']
 
+header = """; constantes
+SYS_EXIT equ 1
+SYS_READ equ 3
+SYS_WRITE equ 4
+STDIN equ 0
+STDOUT equ 1
+True equ 1
+False equ 0
+
+segment .data
+
+segment .bss  ; variaveis
+  res RESB 1
+
+section .text
+  global _start
+
+print:  ; subrotina print
+
+  PUSH EBP ; guarda o base pointer
+  MOV EBP, ESP ; estabelece um novo base pointer
+
+  MOV EAX, [EBP+8] ; 1 argumento antes do RET e EBP
+  XOR ESI, ESI
+
+print_dec: ; empilha todos os digitos
+  MOV EDX, 0
+  MOV EBX, 0x000A
+  DIV EBX
+  ADD EDX, '0'
+  PUSH EDX
+  INC ESI ; contador de digitos
+  CMP EAX, 0
+  JZ print_next ; quando acabar pula
+  JMP print_dec
+
+print_next:
+  CMP ESI, 0
+  JZ print_exit ; quando acabar de imprimir
+  DEC ESI
+
+  MOV EAX, SYS_WRITE
+  MOV EBX, STDOUT
+
+  POP ECX
+  MOV [res], ECX
+  MOV ECX, res
+
+  MOV EDX, 1
+  INT 0x80
+  JMP print_next
+
+print_exit:
+  POP EBP
+  RET
+
+; subrotinas if/while
+binop_je:
+  JE binop_true
+  JMP binop_false
+
+binop_jg:
+  JG binop_true
+  JMP binop_false
+
+binop_jl:
+  JL binop_true
+  JMP binop_false
+
+binop_false:
+  MOV EBX, False
+  JMP binop_exit
+binop_true:
+  MOV EBX, True
+binop_exit:
+  RET
+
+_start:
+
+  PUSH EBP ; guarda o base pointer
+  MOV EBP, ESP ; estabelece um novo base pointer
+
+  ; codigo gerado pelo compilador
+"""
+
+footer = """  ; interrupcao de saida
+  POP EBP
+  MOV EAX, 1
+  INT 0x80"""
+
 class Token:
     def __init__(self, type, value):
         self.type = type
@@ -345,47 +435,69 @@ class PrePro:
         return c
     
 class Node:
+    id = 0
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.new_id()
     
-    def evaluate(self):
+    def evaluate(self, code):
         pass
+
+    @staticmethod
+    def new_id():
+        Node.id += 1
+        return Node.id
 
 class BinOp(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.new_id()
     
-    def evaluate(self):
-        l = self.children[0].evaluate()
-        r = self.children[1].evaluate()
+    def evaluate(self, code):
+        l = self.children[0].evaluate(code)
+        code.add(f"PUSH EBX")
+        r = self.children[1].evaluate(code)
+        code.add(f"POP EAX")
         if self.value == "PLUS":
             if l[0] == r[0] and l[0] == "Int":
+                code.add(f"ADD EAX, EBX")
+                code.add(f"MOV EBX, EAX")
                 return ("Int", l[1] + r[1])
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "MINUS":
             if l[0] == r[0] and l[0] == "Int":
+                code.add(f"SUB EAX, EBX")
+                code.add(f"MOV EBX, EAX")
                 return ("Int", l[1] - r[1])
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "MULT":
             if l[0] == r[0] and l[0] == "Int":
+                code.add(f"IMUL EAX, EBX")
+                code.add(f"MOV EBX, EAX")
                 return ("Int", l[1] * r[1])
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "DIV":
             if l[0] == r[0] and l[0] == "Int":
+                code.add(f"IDIV EAX, EBX")
+                code.add(f"MOV EBX, EAX")
                 return ("Int", l[1] // r[1])
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "EQUALS_BOOL":
+            code.add(f"CMP EAX, EBX")
+            code.add(f"CALL binop_je")
             if l[1] == r[1]:
                 return ("Int", 1)
             else:
                 return ("Int", 0)
         elif self.value == "GREATER":
+            code.add(f"CMP EAX, EBX")
+            code.add(f"CALL binop_jg")
             if l[0] == r[0] and l[0] == "Int":
                 if l[1] > r[1]:
                     return ("Int", 1)
@@ -399,6 +511,8 @@ class BinOp(Node):
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "LESS":
+            code.add(f"CMP EAX, EBX")
+            code.add(f"CALL binop_jl")
             if l[0] == r[0] and l[0] == "Int":
                 if l[1] < r[1]:
                     return ("Int", 1)
@@ -412,6 +526,8 @@ class BinOp(Node):
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "AND":
+            code.add(f"AND EAX, EBX")
+            code.add(f"MOV EBX, EAX")
             if l[0] == r[0] and l[0] == "Int":
                 return ("Int", l and r)
             elif l[0] == r[0] and l[0] == "String":
@@ -419,6 +535,8 @@ class BinOp(Node):
             else:
                 raise Exception("Tipo Inválido")
         elif self.value == "OR":
+            code.add(f"OR EAX, EBX")
+            code.add(f"MOV EBX, EAX")
             if l[0] == r[0] and l[0] == "Int":
                 if l[1] or r[1]:
                     return ("Int", 1)
@@ -438,8 +556,9 @@ class UnOp(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.new_id()
     
-    def evaluate(self):
+    def evaluate(self, code):
         if self.value == "PLUS":
             if self.children[0].evaluate()[0] == "Int":
                 return ["Int", self.children[0].evaluate()[1]]
@@ -462,102 +581,144 @@ class UnOp(Node):
 class IntVal(Node):
     def __init__(self, value):
         self.value = value
+        self.id = Node.new_id()
     
-    def evaluate(self):
+    def evaluate(self, code):
+        code.add(f"MOV EBX, {self.value}")
         return ["Int", int(self.value)]
     
 class StrVal(Node):
     def __init__(self, value):
         self.value = value
+        self.id = Node.new_id()
     
-    def evaluate(self):
+    def evaluate(self, code):
         return ["String", str(self.value)]
     
 class NoOp(Node):
     def __init__(self):
+        self.id = Node.new_id()
         pass
     
-    def evaluate(self):
+    def evaluate(self, code):
         pass
 
 class PrintOp(Node):
     def __init__(self, children):
         self.children = children
+        self.id = Node.new_id()
     
-    def evaluate(self):
-        print(self.children.evaluate()[1])
+    def evaluate(self, code):
+        p = self.children.evaluate(code)[1]
+        code.add(f"PUSH EBX")
+        code.add(f"CALL print")
+        code.add(f"POP EBX")
+        print(p)
 
 class AssignOp(Node):
     def __init__(self, children):
         self.children = children
+        self.id = Node.new_id()
     
-    def evaluate(self):
-        SymbolTable.setter(self.children[0].value, self.children[1].evaluate())
+    def evaluate(self, code):
+        eval = self.children[1].evaluate(code)
+        code.add(f"MOV [EBP - {SymbolTable.getter(self.children[0].value)[2]}], EBX")
+        SymbolTable.setter(self.children[0].value, eval)
 
 class BlockOp(Node):
     def __init__(self, children):
         self.children = children
+        self.id = Node.new_id()
     
-    def evaluate(self):
+    def evaluate(self, code):
         for child in self.children:
-            child.evaluate()
+            child.evaluate(code)
 
 class IdentifierOp(Node):
     def __init__(self, value):
         self.value = value
+        self.id = Node.new_id()
     
-    def evaluate(self):
+    def evaluate(self, code):
+        code.add(f"MOV EBX, [EBP - {SymbolTable.getter(self.value)[2]}]")
         return SymbolTable.getter(self.value)
 
 class ReadLineOp(Node):
     def __init__(self):
+        self.id = Node.new_id()
         pass
     
-    def evaluate(self):
+    def evaluate(self, code):
         return ["Int", int(input())]
 
 class WhileOp(Node):
     def __init__(self, children):
         self.children = children
+        self.id = Node.new_id()
     
-    def evaluate(self):
-        while self.children[0].evaluate()[1] != 0:
-            self.children[1].evaluate()
+    def evaluate(self, code):
+        code.add(f"LOOP_{self.id}:")
+        self.children[0].evaluate(code)
+        code.add(f"CMP EBX, False")
+        code.add(f"JE EXIT_{self.id}")
+        self.children[1].evaluate(code)
+        code.add(f"JMP LOOP_{self.id}")
+        code.add(f"EXIT_{self.id}:")
+
+        """ while self.children[0].evaluate()[1] != 0:
+            self.children[1].evaluate() """
 
 class IfOp(Node):
     def __init__(self, children):
         self.children = children
+        self.id = Node.new_id()
     
-    def evaluate(self):
-        if self.children[0].evaluate():
+    def evaluate(self, code):
+        code.add(f"IF_{self.id}:")
+        self.children[0].evaluate(code)
+        code.add(f"CMP EBX, False")
+        code.add(f"JE ELSE_{self.id}")
+        self.children[1].evaluate(code)
+        code.add(f"JMP END_IF_{self.id}")
+        code.add(f"ELSE_{self.id}:")
+
+        if len(self.children) == 3:
+            self.children[2].evaluate(code)
+        """ if self.children[0].evaluate()[1]:
             self.children[1].evaluate()
         else:
             if len(self.children) == 3:
-                self.children[2].evaluate()
+                self.children[2].evaluate() """
 
 class VarDeclOp(Node):
     def __init__(self, value, children):
         self.children = children
         self.value = value
+        self.id = Node.new_id()
     
-    def evaluate(self):
+    def evaluate(self, code):
         if len(self.children) == 1:
             if self.value == "Int":
+                code.add("PUSH DWORD 0")
                 SymbolTable.create(self.children[0].value, [self.value, 0])
             elif self.value == "String":
+                code.add("PUSH DWORD 0")
                 SymbolTable.create(self.children[0].value, [self.value, ""])
             else:
                 raise Exception("Tipo inválido")
         else:
             if self.value == "Int" and self.children[1].evaluate()[0] == "Int":
+                code.add("PUSH DWORD 0")
                 SymbolTable.create(self.children[0].value, [self.value, self.children[1].evaluate()[1]])
             elif self.value == "String" and self.children[1].evaluate()[0] == "String":
+                code.add("PUSH DWORD 0")
                 SymbolTable.create(self.children[0].value, [self.value, self.children[1].evaluate()[1]])
             else:
                 raise Exception("Tipo inválido")
 
 class SymbolTable:
     table = {}
+    address = 0
     
     def setter(name, value):
         if SymbolTable.table[name][0] == value[0]:
@@ -571,15 +732,32 @@ class SymbolTable:
     def create(name, value):
         if name in SymbolTable.table:
             raise Exception("Variável já declarada")
-        SymbolTable.table[name] = value
+        SymbolTable.address += 4
+        SymbolTable.table[name] = [value[0], value[1], SymbolTable.address]
+
+class Asm:
+    def __init__(self, filename):
+        self.code = ""
+        self.filename = filename[:-3] + ".asm"
+    
+    def add(self, code):
+        self.code += code + "\n"
+
+    def save(self):
+        with open(self.filename, 'w') as f:
+            f.write(header + self.code + footer)
 
 def read_file(filename):
     with open(filename, 'r') as f:
         return f.read()
 
 def main():
-    code = read_file(sys.argv[1])
-    #code = read_file("test.txt")
-    Parser.run(code).evaluate()
+    #name = sys.argv[1]
+    #code = read_file(sys.argv[1])
+    code = read_file("test.jl")
+    name = "test.jl"
+    asm_code = Asm(name)
+    Parser.run(code).evaluate(asm_code)
+    asm_code.save()
 
 main()
