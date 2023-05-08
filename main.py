@@ -689,6 +689,7 @@ class IfOp(Node):
         else:
             if len(self.children) == 3:
                 self.children[2].evaluate() """
+        code.add(f"END_IF_{self.id}:")
 
 class VarDeclOp(Node):
     def __init__(self, value, children):
