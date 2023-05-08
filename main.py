@@ -752,10 +752,10 @@ def read_file(filename):
         return f.read()
 
 def main():
-    #name = sys.argv[1]
-    #code = read_file(sys.argv[1])
-    code = read_file("test.jl")
-    name = "test.jl"
+    name = sys.argv[1]
+    code = read_file(sys.argv[1])
+    #code = read_file("test.jl")
+    #name = "test.jl"
     asm_code = Asm(name)
     Parser.run(code).evaluate(asm_code)
     asm_code.save()
