@@ -110,7 +110,7 @@ class Tokenizer:
             raise Exception("Entrada vazia")
         else:
             self.next = Token('EOF', '')
-        print(self.next.type, self.next.value)
+        #print(self.next.type, self.next.value)
 
 class Parser:
     @staticmethod
@@ -739,8 +739,8 @@ def read_file(filename):
         return f.read()
 
 def main():
-    #code = read_file(sys.argv[1])
-    code = read_file("test.jl")
+    code = read_file(sys.argv[1])
+    #code = read_file("test.jl")
     symbol_table = SymbolTable()
     Parser.run(code).evaluate(symbol_table)
 
