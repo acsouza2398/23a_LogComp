@@ -66,11 +66,6 @@ class Tokenizer:
                 self.position = i
                 self.next = Token('WORD', a)
             elif self.source[self.position] == '\n':
-                #i = self.position
-                #while i < len(self.source) and self.source[i] == '\n' or self.source[i] == ' ':
-                #    i += 1                
-                #self.next = Token('NEWLINE', self.source[i-1])
-                #self.position = i-1
                 self.next = Token('NEWLINE', self.source[self.position])
                 self.position += 1
             elif self.source[self.position] == '>':
@@ -115,13 +110,12 @@ class Tokenizer:
             raise Exception("Entrada vazia")
         else:
             self.next = Token('EOF', '')
-        #print(self.next.type, self.next.value)
+        print(self.next.type, self.next.value)
 
 class Parser:
     @staticmethod
     def parseTerm(tokenizer):
         a = Parser.parseFactor(tokenizer)
-        #tokenizer.selectNext()
         while tokenizer.next.type == "MULT" or tokenizer.next.type == "DIV" or tokenizer.next.type == "AND":
             if tokenizer.next.type == "MULT":
                 tokenizer.selectNext()
@@ -135,7 +129,7 @@ class Parser:
                 tokenizer.selectNext()
                 b = Parser.parseFactor(tokenizer)
                 a = BinOp("AND", [a, b])
-            tokenizer.selectNext()
+            #tokenizer.selectNext()
         return a
         
     @staticmethod
@@ -182,27 +176,32 @@ class Parser:
     def parseFactor(tokenizer):
         if tokenizer.next.type == "INT":
             n = IntVal(tokenizer.next.value)
+            tokenizer.selectNext()
             return n
         elif tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS" or tokenizer.next.type == "NOT":
             if tokenizer.next.type == "PLUS":
                 tokenizer.selectNext()
                 n = Parser.parseFactor(tokenizer)
                 a = UnOp("PLUS", [n])
+                #tokenizer.selectNext()
                 return a
             elif tokenizer.next.type == "MINUS":
                 tokenizer.selectNext()
                 n = Parser.parseFactor(tokenizer)
                 a = UnOp("MINUS", [n])
+                #tokenizer.selectNext()
                 return a
             elif tokenizer.next.type == "NOT":
                 tokenizer.selectNext()
                 n = Parser.parseFactor(tokenizer)
                 a = UnOp("NOT", [n])
+                #tokenizer.selectNext()
                 return a
         elif tokenizer.next.type == "LPAREN":
             tokenizer.selectNext()
             n = Parser.parseRelExpression(tokenizer)
             if tokenizer.next.type == "RPAREN":
+                tokenizer.selectNext()
                 return n
             else:
                 raise Exception("Símbolo inválido")
@@ -215,6 +214,7 @@ class Parser:
                     if tokenizer.next.type == "LPAREN":
                         tokenizer.selectNext()
                         if tokenizer.next.type == "RPAREN":
+                            tokenizer.selectNext()
                             return ReadLineOp()
                         else:
                             raise Exception("Símbolo inválido")
@@ -229,17 +229,18 @@ class Parser:
                     if tokenizer.next.type != "RPAREN":
                         n = Parser.parseRelExpression(tokenizer)
                         c.append(n)
+                        #tokenizer.selectNext()
                         while tokenizer.next.type == "COMMA":
                             tokenizer.selectNext()
                             n = Parser.parseRelExpression(tokenizer)
                             c.append(n)
-                            tokenizer.selectNext()
                         if tokenizer.next.type == "RPAREN":
                             tokenizer.selectNext()
                             return FuncCallOp(f, c)
                         else:
                             raise Exception("Símbolo inválido")
                     elif tokenizer.next.type == "RPAREN":
+                        tokenizer.selectNext()
                         return FuncCallOp(f, c)
                     else:
                         raise Exception("Símbolo inválido")
@@ -250,11 +251,10 @@ class Parser:
             n = StrVal(tokenizer.next.value)
             tokenizer.selectNext()
             if tokenizer.next.type == "QUOTE":
+                tokenizer.selectNext()
                 return n
             else:
                 raise Exception("Símbolo inválido")
-        elif tokenizer.next.type == "WORD":
-            pass
         else:
             raise Exception("Símbolo inválido")
         
@@ -363,10 +363,16 @@ class Parser:
                                                 tokenizer.selectNext()
                                                 if tokenizer.next.value == "Int":
                                                     b = Parser.parseBlock(tokenizer)
-                                                    return FuncDecOp("Int",[i, c, b])
+                                                    if tokenizer.next.value == "end":
+                                                        return FuncDecOp("Int",[i, c, b])
+                                                    else:
+                                                        raise Exception("Símbolo inválido")
                                                 elif tokenizer.next.value == "String":
                                                     b = Parser.parseBlock(tokenizer)
-                                                    return FuncDecOp("String",[i, c, b])
+                                                    if tokenizer.next.value == "end":
+                                                        return FuncDecOp("String",[i, c, b])
+                                                    else:
+                                                        raise Exception("Símbolo inválido")
                                                 else:
                                                     raise Exception("Símbolo inválido")
                                             else:
@@ -378,9 +384,17 @@ class Parser:
                                     if tokenizer.next.type == "DECLARE":
                                         tokenizer.selectNext()
                                         if tokenizer.next.value == "Int":
-                                            return FuncDecOp("Int",[i, c])
+                                            b = Parser.parseBlock(tokenizer)
+                                            if tokenizer.next.value == "end":
+                                                return FuncDecOp("Int",[i, c, b])
+                                            else:
+                                                raise Exception("Símbolo inválido")
                                         elif tokenizer.next.value == "String":
-                                            return FuncDecOp("String",[i, c])
+                                            b = Parser.parseBlock(tokenizer)
+                                            if tokenizer.next.value == "end":
+                                                return FuncDecOp("String",[i, c, b])
+                                            else:
+                                                raise Exception("Símbolo inválido")
                                         else:
                                             raise Exception("Símbolo inválido")
                                     else:
@@ -725,8 +739,8 @@ def read_file(filename):
         return f.read()
 
 def main():
-    code = read_file(sys.argv[1])
-    #code = read_file("test.jl")
+    #code = read_file(sys.argv[1])
+    code = read_file("test.jl")
     symbol_table = SymbolTable()
     Parser.run(code).evaluate(symbol_table)
 
