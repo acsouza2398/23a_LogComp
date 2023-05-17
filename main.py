@@ -627,7 +627,8 @@ class IdentifierOp(Node):
 
 class ReadLineOp(Node):
     def __init__(self):
-        pass
+        self.value = None
+        self.children = None
     
     def evaluate(self, symbol_table):
         return ["Int", int(input())]
@@ -635,6 +636,7 @@ class ReadLineOp(Node):
 class WhileOp(Node):
     def __init__(self, children):
         self.children = children
+        self.value = None
     
     def evaluate(self, symbol_table):
         while self.children[0].evaluate(symbol_table)[1] != 0:
@@ -643,6 +645,7 @@ class WhileOp(Node):
 class IfOp(Node):
     def __init__(self, children):
         self.children = children
+        self.value = None
     
     def evaluate(self, symbol_table):
         if self.children[0].evaluate(symbol_table):
