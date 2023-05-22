@@ -847,15 +847,19 @@ class FuncCallOp(Node):
         args = []
         new_func = FuncTable.getter(self.value)
         new_table = SymbolTable()
+        func = Func_Asm()
+        
+        code.add(f"CALL {self.value}")
+        func.add(f"{self.value}:")
 
         for i in range(len(self.children)):
-            args.append(new_func.children[1][i].children[0].value)
-            new_func.children[1][i].evaluate(new_table)
+            args.append(new_func[0].children[1][i].children[0].value)
+            new_func[0].children[1][i].evaluate(new_table, func)
 
         for i in range(len(args)):
             new_table.setter(args[i], self.children[i].evaluate(symbol_table, code))
 
-        return new_func.children[2].evaluate(new_table)
+        return new_func[0].children[2].evaluate(new_table, func)
     
 class ReturnOp(Node):
     def __init__(self, children):
@@ -864,12 +868,15 @@ class ReturnOp(Node):
         self.id = Node.new_id()
     
     def evaluate(self, symbol_table, code):
-        return self.children.evaluate(symbol_table, code)
+        eval = self.children.evaluate(symbol_table, code)
+        code.add("RET")
+        code.save("temp.asm")
+        return eval
 
 class SymbolTable:
+    address = 0
     def __init__(self):
         self.table = {}
-        self.address = 0
     
     def setter(self, name, value):
         if self.table[name][0] == value[0]:
@@ -883,7 +890,7 @@ class SymbolTable:
     def create(self, name, value):
         if name in self.table:
             raise Exception("Variável já declarada")
-        self.address += 4
+        SymbolTable.address += 4
         self.table[name] = [value[0], value[1], self.address]
 
 class FuncTable:
@@ -895,7 +902,7 @@ class FuncTable:
     
     def create(name, value):
         FuncTable.address += 4
-        FuncTable.table[name] = [value[0], value[1], FuncTable.address]
+        FuncTable.table[name] = [value, FuncTable.address]
 
 class Asm:
     def __init__(self, filename):
@@ -905,9 +912,26 @@ class Asm:
     def add(self, code):
         self.code += code + "\n"
 
-    def save(self):
-        with open(self.filename, 'w') as f:
-            f.write(header + self.code + footer)
+class Func_Asm:
+    def __init__(self):
+        self.code = ""
+    
+    def add(self, code):
+        self.code += code + "\n"
+    
+    def save(self, filename):
+        with open(filename, 'w') as f:
+            f.write(self.code)
+
+func = ""
+
+def save(code, filename):
+    with open(filename, 'w') as f:
+        func = read_file("temp.asm")
+        f.write(header + func + "\n" + code + footer)
+    
+    with open("temp.asm", 'w') as f:
+        f.write("")
 
 
 def read_file(filename):
@@ -917,11 +941,12 @@ def read_file(filename):
 def main():
     #name = sys.argv[1]
     #code = read_file(sys.argv[1])
-    code = read_file("test.jl")
-    name = "test.jl"
+    code = read_file("functest.jl")
+    name = "functest.jl"
     asm_code = Asm(name)
     symbol_table = SymbolTable()
     Parser.run(code).evaluate(symbol_table, asm_code)
-    asm_code.save()
+    print(func)
+    save(asm_code.code, asm_code.filename)
 
 main()
