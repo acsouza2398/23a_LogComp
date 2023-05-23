@@ -84,13 +84,15 @@ binop_true:
 binop_exit:
   RET
 
-_start:
+"""
+
+start = """_start:
 
   PUSH EBP ; guarda o base pointer
   MOV EBP, ESP ; estabelece um novo base pointer
 
   ; codigo gerado pelo compilador
-"""
+  """
 
 footer = """  ; interrupcao de saida
   POP EBP
@@ -493,10 +495,8 @@ class Parser:
                     tokenizer.selectNext()
                     a = Parser.parseRelExpression(tokenizer)
                     return ReturnOp(a)
-
             else:
                 i = IdentifierOp(tokenizer.next.value)
-                #i = tokenizer.next.value
                 tokenizer.selectNext()
                 if tokenizer.next.type == "EQUALS":
                     tokenizer.selectNext()
@@ -540,7 +540,6 @@ class PrePro:
     @staticmethod
     def filter(code):
         c = re.sub(r'#.*\n', '', code).replace("\s", "")
-        #c = re.sub(r'#.*$', '', code).replace("\n", "").replace("\s", "")
         return c
     
 class Node:
@@ -566,13 +565,13 @@ class BinOp(Node):
     
     def evaluate(self, symbol_table, code):
         l = self.children[0].evaluate(symbol_table, code)
-        code.add(f"PUSH EBX")
+        code.add(f"PUSH EBX ; {l[1]}")
         r = self.children[1].evaluate(symbol_table, code)
         code.add(f"POP EAX")
         if self.value == "PLUS":
             if l[0] == r[0] and l[0] == "Int":
-                code.add(f"ADD EAX, EBX")
-                code.add(f"MOV EBX, EAX")
+                code.add(f"ADD EAX, EBX ;Soma de {l[1]} e {r[1]}")
+                code.add(f"MOV EBX, EAX ;EBX = {l[1]} + {r[1]}")
                 return ("Int", l[1] + r[1])
             else:
                 raise Exception("Tipo Inválido")
@@ -693,7 +692,7 @@ class IntVal(Node):
         self.id = Node.new_id()
     
     def evaluate(self, symbol_table, code):
-        code.add(f"MOV EBX, {self.value}")
+        code.add(f"MOV EBX, {self.value} ;IntVal {self.value}")
         return ["Int", int(self.value)]
     
 class StrVal(Node):
@@ -734,7 +733,7 @@ class AssignOp(Node):
     
     def evaluate(self, symbol_table, code):
         eval = self.children[1].evaluate(symbol_table, code)
-        code.add(f"MOV [EBP - {symbol_table.getter(self.children[0].value)[2]}], EBX")
+        code.add(f"MOV [EBP - {symbol_table.getter(self.children[0].value)[2]}], EBX ;AssignOp de {self.children[0].value}")
         symbol_table.setter(self.children[0].value, eval)
 
 class BlockOp(Node):
@@ -744,7 +743,6 @@ class BlockOp(Node):
     
     def evaluate(self, symbol_table, code):
         for child in self.children:
-            #print(child.value)
             if child is not None:
                 if child.value == "Return":
                     return child.evaluate(symbol_table, code)
@@ -756,7 +754,7 @@ class IdentifierOp(Node):
         self.id = Node.new_id()
     
     def evaluate(self, symbol_table, code):
-        code.add(f"MOV EBX, [EBP - {symbol_table.getter(self.value)[2]}]")
+        code.add(f"MOV EBX, [EBP - {symbol_table.getter(self.value)[2]}] ;IdentifierOp de {self.value}")
         return symbol_table.getter(self.value)
 
 class ReadLineOp(Node):
@@ -811,7 +809,7 @@ class VarDeclOp(Node):
     def evaluate(self, symbol_table, code):
         if len(self.children) == 1:
             if self.value == "Int":
-                code.add("PUSH DWORD 0")
+                code.add(f"PUSH DWORD 0 ;VarDeclOp de {self.children[0].value}")
                 symbol_table.create(self.children[0].value, [self.value, 0])
             elif self.value == "String":
                 code.add("PUSH DWORD 0")
@@ -820,7 +818,7 @@ class VarDeclOp(Node):
                 raise Exception("Tipo inválido")
         else:
             if self.value == "Int" and self.children[1].evaluate(symbol_table, code)[0] == "Int":
-                code.add("PUSH DWORD 0")
+                code.add(f"PUSH DWORD 0 ;VarDeclOp de {self.children[0].value}")
                 symbol_table.create(self.children[0].value, [self.value, self.children[1].evaluate(symbol_table, code)[1]])
             elif self.value == "String" and self.children[1].evaluate(symbol_table, code)[0] == "String":
                 code.add("PUSH DWORD 0")
@@ -847,19 +845,38 @@ class FuncCallOp(Node):
         args = []
         new_func = FuncTable.getter(self.value)
         new_table = SymbolTable()
-        func = Func_Asm()
-        
-        code.add(f"CALL {self.value}")
-        func.add(f"{self.value}:")
+        if self.value not in FuncTable.func_name:
+            func = Func_Asm() 
+            func.add(f"{self.value}:")
+            func.add("PUSH EBP ; guarda o base pointer")
+            func.add("MOV EBP, ESP ; estabelece um novo base pointer")
 
         for i in range(len(self.children)):
             args.append(new_func[0].children[1][i].children[0].value)
-            new_func[0].children[1][i].evaluate(new_table, func)
+            if self.value not in FuncTable.func_name:
+                new_func[0].children[1][i].evaluate(new_table, func)
 
         for i in range(len(args)):
-            new_table.setter(args[i], self.children[i].evaluate(symbol_table, code))
+            eval = self.children[i].evaluate(symbol_table, code)
+            code.add(f"PUSH {eval[1]} ;Empilhando valor de  {args[i]}")
+            if self.value not in FuncTable.func_name:
+                func.add(f"MOV EBX, [EBP + {FuncTable.rel_address*(len(args)-i)+4}]")
+                func.add(f"MOV [EBP - {new_table.getter(new_func[0].children[1][i].children[0].value)[2]}], EBX ;AssignOp de {new_func[0].children[1][i].children[0].value}")
+                new_table.setter(args[i], eval)
 
-        return new_func[0].children[2].evaluate(new_table, func)
+        code.add(f"CALL {self.value}")
+
+        for i in range(len(args)):
+            code.add(f"POP EAX")
+
+        if self.value not in FuncTable.func_name:
+            ret = new_func[0].children[2].evaluate(new_table, func)
+            FuncTable.func_name.append(self.value)
+            print(FuncTable.func_name)
+        else:
+            ret = NoOp().evaluate(new_table, func)
+
+        return ret
     
 class ReturnOp(Node):
     def __init__(self, children):
@@ -869,14 +886,16 @@ class ReturnOp(Node):
     
     def evaluate(self, symbol_table, code):
         eval = self.children.evaluate(symbol_table, code)
+        code.add("POP EBP ; restaura o base pointer	")
         code.add("RET")
+        code.add("\n")
         code.save("temp.asm")
         return eval
 
 class SymbolTable:
-    address = 0
     def __init__(self):
         self.table = {}
+        self.address = 0
     
     def setter(self, name, value):
         if self.table[name][0] == value[0]:
@@ -890,12 +909,14 @@ class SymbolTable:
     def create(self, name, value):
         if name in self.table:
             raise Exception("Variável já declarada")
-        SymbolTable.address += 4
+        self.address += 4
         self.table[name] = [value[0], value[1], self.address]
 
 class FuncTable:
     table = {}
     address = 0
+    rel_address = 4
+    func_name = []
     
     def getter(name):
         return FuncTable.table[name]
@@ -920,7 +941,7 @@ class Func_Asm:
         self.code += code + "\n"
     
     def save(self, filename):
-        with open(filename, 'w') as f:
+        with open(filename, 'a') as f:
             f.write(self.code)
 
 func = ""
@@ -928,7 +949,7 @@ func = ""
 def save(code, filename):
     with open(filename, 'w') as f:
         func = read_file("temp.asm")
-        f.write(header + func + "\n" + code + footer)
+        f.write(header + func + "\n" + start + code + footer)
     
     with open("temp.asm", 'w') as f:
         f.write("")

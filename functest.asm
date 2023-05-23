@@ -75,31 +75,71 @@ binop_true:
 binop_exit:
   RET
 
+soma:
+PUSH EBP ; guarda o base pointer
+MOV EBP, ESP ; estabelece um novo base pointer
+PUSH DWORD 0 ;VarDeclOp de x
+PUSH DWORD 0 ;VarDeclOp de y
+MOV EBX, [EBP + 12]
+MOV [EBP - 4], EBX ;AssignOp de x
+MOV EBX, [EBP + 8]
+MOV [EBP - 8], EBX ;AssignOp de y
+MOV EBX, [EBP - 4] ;IdentifierOp de x
+PUSH EBX ; 1
+MOV EBX, [EBP - 8] ;IdentifierOp de y
+POP EAX
+ADD EAX, EBX ;Soma de 1 e 2
+MOV EBX, EAX ;EBX = 1 + 2
+POP EBP ; restaura o base pointer	
+RET
+
+
+subtract:
+PUSH EBP ; guarda o base pointer
+MOV EBP, ESP ; estabelece um novo base pointer
+PUSH DWORD 0 ;VarDeclOp de x
+PUSH DWORD 0 ;VarDeclOp de y
+MOV EBX, [EBP + 12]
+MOV [EBP - 4], EBX ;AssignOp de x
+MOV EBX, [EBP + 8]
+MOV [EBP - 8], EBX ;AssignOp de y
+MOV EBX, [EBP - 4] ;IdentifierOp de x
+PUSH EBX ; 2
+MOV EBX, [EBP - 8] ;IdentifierOp de y
+POP EAX
+SUB EAX, EBX
+MOV EBX, EAX
+POP EBP ; restaura o base pointer	
+RET
+
+
+
 _start:
 
   PUSH EBP ; guarda o base pointer
   MOV EBP, ESP ; estabelece um novo base pointer
 
   ; codigo gerado pelo compilador
-soma:
-PUSH DWORD 0
-PUSH DWORD 0
-MOV EBX, [EBP - 8]
-PUSH EBX
-MOV EBX, [EBP - 12]
-POP EAX
-ADD EAX, EBX
-MOV EBX, EAX
-RET
-
-PUSH DWORD 0
-MOV EBX, 2
-MOV [EBP - 4], EBX
+  PUSH DWORD 0 ;VarDeclOp de x_1
+MOV EBX, 2 ;IntVal 2
+MOV [EBP - 4], EBX ;AssignOp de x_1
+MOV EBX, 1 ;IntVal 1
+PUSH 1 ;Empilhando valor de  x
+MOV EBX, [EBP - 4] ;IdentifierOp de x_1
+PUSH 2 ;Empilhando valor de  y
 CALL soma
-MOV EBX, 1
-MOV EBX, [EBP - 4]
-MOV [EBP - 4], EBX
-MOV EBX, [EBP - 4]
+POP EAX
+POP EAX
+MOV [EBP - 4], EBX ;AssignOp de x_1
+MOV EBX, 2 ;IntVal 2
+PUSH 2 ;Empilhando valor de  x
+MOV EBX, [EBP - 4] ;IdentifierOp de x_1
+PUSH 3 ;Empilhando valor de  y
+CALL subtract
+POP EAX
+POP EAX
+MOV [EBP - 4], EBX ;AssignOp de x_1
+MOV EBX, [EBP - 4] ;IdentifierOp de x_1
 PUSH EBX
 CALL print
 POP EBX
