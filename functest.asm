@@ -84,6 +84,8 @@ MOV EBX, [EBP + 12]
 MOV [EBP - 4], EBX ;AssignOp de x
 MOV EBX, [EBP + 8]
 MOV [EBP - 8], EBX ;AssignOp de y
+POP EAX
+POP EAX
 MOV EBX, [EBP - 4] ;IdentifierOp de x
 PUSH EBX ; 1
 MOV EBX, [EBP - 8] ;IdentifierOp de y
@@ -103,8 +105,10 @@ MOV EBX, [EBP + 12]
 MOV [EBP - 4], EBX ;AssignOp de x
 MOV EBX, [EBP + 8]
 MOV [EBP - 8], EBX ;AssignOp de y
+POP EAX
+POP EAX
 MOV EBX, [EBP - 4] ;IdentifierOp de x
-PUSH EBX ; 2
+PUSH EBX ; 4
 MOV EBX, [EBP - 8] ;IdentifierOp de y
 POP EAX
 SUB EAX, EBX
@@ -131,10 +135,18 @@ CALL soma
 POP EAX
 POP EAX
 MOV [EBP - 4], EBX ;AssignOp de x_1
-MOV EBX, 2 ;IntVal 2
-PUSH 2 ;Empilhando valor de  x
+MOV EBX, 1 ;IntVal 1
+PUSH 1 ;Empilhando valor de  x
 MOV EBX, [EBP - 4] ;IdentifierOp de x_1
 PUSH 3 ;Empilhando valor de  y
+CALL soma
+POP EAX
+POP EAX
+MOV [EBP - 4], EBX ;AssignOp de x_1
+MOV EBX, [EBP - 4] ;IdentifierOp de x_1
+PUSH 4 ;Empilhando valor de  x
+MOV EBX, 1 ;IntVal 1
+PUSH 1 ;Empilhando valor de  y
 CALL subtract
 POP EAX
 POP EAX

@@ -855,6 +855,9 @@ class FuncCallOp(Node):
             args.append(new_func[0].children[1][i].children[0].value)
             if self.value not in FuncTable.func_name:
                 new_func[0].children[1][i].evaluate(new_table, func)
+            else:
+                rep = Rep_Asm()
+                new_func[0].children[1][i].evaluate(new_table, rep)
 
         for i in range(len(args)):
             eval = self.children[i].evaluate(symbol_table, code)
@@ -862,19 +865,21 @@ class FuncCallOp(Node):
             if self.value not in FuncTable.func_name:
                 func.add(f"MOV EBX, [EBP + {FuncTable.rel_address*(len(args)-i)+4}]")
                 func.add(f"MOV [EBP - {new_table.getter(new_func[0].children[1][i].children[0].value)[2]}], EBX ;AssignOp de {new_func[0].children[1][i].children[0].value}")
-                new_table.setter(args[i], eval)
+            new_table.setter(args[i], eval)
 
         code.add(f"CALL {self.value}")
 
         for i in range(len(args)):
             code.add(f"POP EAX")
+            if self.value not in FuncTable.func_name:
+                func.add(f"POP EAX")
 
         if self.value not in FuncTable.func_name:
             ret = new_func[0].children[2].evaluate(new_table, func)
             FuncTable.func_name.append(self.value)
             print(FuncTable.func_name)
         else:
-            ret = NoOp().evaluate(new_table, func)
+            ret = new_func[0].children[2].evaluate(new_table, rep)
 
         return ret
     
@@ -943,6 +948,16 @@ class Func_Asm:
     def save(self, filename):
         with open(filename, 'a') as f:
             f.write(self.code)
+
+class Rep_Asm:
+    def __init__(self):
+        self.code = ""
+
+    def add(self, code):
+        self.code += code + "\n"
+
+    def save(self, filename):
+        pass
 
 func = ""
 
