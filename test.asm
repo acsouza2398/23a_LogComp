@@ -75,52 +75,53 @@ binop_true:
 binop_exit:
   RET
 
+
 _start:
 
   PUSH EBP ; guarda o base pointer
   MOV EBP, ESP ; estabelece um novo base pointer
 
   ; codigo gerado pelo compilador
-PUSH DWORD 0
-PUSH DWORD 0
-PUSH DWORD 0
-MOV EBX, 5
-MOV [EBP - 8], EBX
-MOV EBX, 2
-MOV [EBP - 4], EBX
-MOV EBX, 1
-MOV [EBP - 12], EBX
+  PUSH DWORD 0 ;VarDeclOp de i
+PUSH DWORD 0 ;VarDeclOp de n
+PUSH DWORD 0 ;VarDeclOp de f
+MOV EBX, 5 ;IntVal 5
+MOV [EBP - 8], EBX ;AssignOp de n
+MOV EBX, 2 ;IntVal 2
+MOV [EBP - 4], EBX ;AssignOp de i
+MOV EBX, 1 ;IntVal 1
+MOV [EBP - 12], EBX ;AssignOp de f
 LOOP_32:
-MOV EBX, [EBP - 4]
-PUSH EBX
-MOV EBX, [EBP - 8]
-PUSH EBX
-MOV EBX, 1
+MOV EBX, [EBP - 4] ;IdentifierOp de i
+PUSH EBX ; 2
+MOV EBX, [EBP - 8] ;IdentifierOp de n
+PUSH EBX ; 5
+MOV EBX, 1 ;IntVal 1
 POP EAX
-ADD EAX, EBX
-MOV EBX, EAX
+ADD EAX, EBX ;Soma de 5 e 1
+MOV EBX, EAX ;EBX = 5 + 1
 POP EAX
 CMP EAX, EBX
 CALL binop_jl
 CMP EBX, False
 JE EXIT_32
-MOV EBX, [EBP - 12]
-PUSH EBX
-MOV EBX, [EBP - 4]
+MOV EBX, [EBP - 12] ;IdentifierOp de f
+PUSH EBX ; 1
+MOV EBX, [EBP - 4] ;IdentifierOp de i
 POP EAX
 IMUL EAX, EBX
 MOV EBX, EAX
-MOV [EBP - 12], EBX
-MOV EBX, [EBP - 4]
-PUSH EBX
-MOV EBX, 1
+MOV [EBP - 12], EBX ;AssignOp de f
+MOV EBX, [EBP - 4] ;IdentifierOp de i
+PUSH EBX ; 2
+MOV EBX, 1 ;IntVal 1
 POP EAX
-ADD EAX, EBX
-MOV EBX, EAX
-MOV [EBP - 4], EBX
+ADD EAX, EBX ;Soma de 2 e 1
+MOV EBX, EAX ;EBX = 2 + 1
+MOV [EBP - 4], EBX ;AssignOp de i
 JMP LOOP_32
 EXIT_32:
-MOV EBX, [EBP - 12]
+MOV EBX, [EBP - 12] ;IdentifierOp de f
 PUSH EBX
 CALL print
 POP EBX

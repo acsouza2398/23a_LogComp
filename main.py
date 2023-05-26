@@ -1,8 +1,6 @@
 import sys
 import re
-
-#O sintático/parser está sempre olhando para o próximo token, e o léxico está sempre olhando para o token atual
-#O tokenizer sempre começa no primeiro token, e o parser sempre começa no segundo token
+from pathlib import Path
 
 alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890'
 reserved = ['println', 'if', 'else', 'end', 'while', 'readline', 'break', 'continue', 'Int', 'String', 'return', 'function']
@@ -202,7 +200,7 @@ class Tokenizer:
             raise Exception("Entrada vazia")
         else:
             self.next = Token('EOF', '')
-        print(self.next.type, self.next.value)
+        #print(self.next.type, self.next.value)
 
 class Parser:
     @staticmethod
@@ -221,7 +219,6 @@ class Parser:
                 tokenizer.selectNext()
                 b = Parser.parseFactor(tokenizer)
                 a = BinOp("AND", [a, b])
-            #tokenizer.selectNext()
         return a
         
     @staticmethod
@@ -275,19 +272,16 @@ class Parser:
                 tokenizer.selectNext()
                 n = Parser.parseFactor(tokenizer)
                 a = UnOp("PLUS", [n])
-                #tokenizer.selectNext()
                 return a
             elif tokenizer.next.type == "MINUS":
                 tokenizer.selectNext()
                 n = Parser.parseFactor(tokenizer)
                 a = UnOp("MINUS", [n])
-                #tokenizer.selectNext()
                 return a
             elif tokenizer.next.type == "NOT":
                 tokenizer.selectNext()
                 n = Parser.parseFactor(tokenizer)
                 a = UnOp("NOT", [n])
-                #tokenizer.selectNext()
                 return a
         elif tokenizer.next.type == "LPAREN":
             tokenizer.selectNext()
@@ -321,7 +315,6 @@ class Parser:
                     if tokenizer.next.type != "RPAREN":
                         n = Parser.parseRelExpression(tokenizer)
                         c.append(n)
-                        #tokenizer.selectNext()
                         while tokenizer.next.type == "COMMA":
                             tokenizer.selectNext()
                             n = Parser.parseRelExpression(tokenizer)
@@ -959,15 +952,17 @@ class Rep_Asm:
     def save(self, filename):
         pass
 
-func = ""
-
 def save(code, filename):
     with open(filename, 'w') as f:
-        func = read_file("temp.asm")
+        if Path("temp.asm").is_file():
+            func = read_file("temp.asm")
+        else:
+            func = ""
         f.write(header + func + "\n" + start + code + footer)
     
-    with open("temp.asm", 'w') as f:
-        f.write("")
+    if Path("temp.asm").is_file():
+        with open("temp.asm", 'w') as f:
+            f.write("")
 
 
 def read_file(filename):
@@ -975,14 +970,13 @@ def read_file(filename):
         return f.read()
 
 def main():
-    #name = sys.argv[1]
-    #code = read_file(sys.argv[1])
-    code = read_file("functest.jl")
-    name = "functest.jl"
+    name = sys.argv[1]
+    code = read_file(sys.argv[1])
+    #code = read_file("functest.jl")
+    #name = "functest.jl"
     asm_code = Asm(name)
     symbol_table = SymbolTable()
     Parser.run(code).evaluate(symbol_table, asm_code)
-    print(func)
     save(asm_code.code, asm_code.filename)
 
 main()
